@@ -51,7 +51,7 @@ app.get('/', (req, res) => {
   res.send(indexHtml);
 });
 
-app.post('/convert', upload.single('wordFile'), (req, res) => {
+app.post('/convert', upload.single('wordFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ 
@@ -66,16 +66,12 @@ app.post('/convert', upload.single('wordFile'), (req, res) => {
       fs.mkdirSync(outputDir);
     }
 
-    // 处理Word文档
-    const questions = WordProcessor.extractQuestions(req.file.path);
-    
-    // 生成HTML页面
-    const html = WordProcessor.generateHTML(questions, '在线测评系统');
-    
-    // 保存HTML文件
+    // 生成HTML文件名
     const fileName = `assessment_${Date.now()}.html`;
     const outputPath = path.join(outputDir, fileName);
-    fs.writeFileSync(outputPath, html);
+    
+    // 使用真正的流式处理方式：边读取、边处理、边生成
+    await WordProcessor.streamProcess(req.file.path, outputPath, '在线测评系统');
     
     // 返回成功响应
     res.json({

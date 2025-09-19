@@ -2,8 +2,229 @@ const fs = require('fs');
 const path = require('path');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
+const { Transform, Readable, Writable } = require('stream');
 
 class WordProcessor {
+  /**
+   * 使用流式处理方式从Word文档中提取测试题并直接生成HTML
+   * @param {string} inputPath - Word文档路径
+   * @param {string} outputPath - 输出HTML文件路径
+   * @param {string} title - 页面标题
+   * @returns {Promise<void>}
+   */
+  static streamProcess(inputPath, outputPath, title = '在线测评系统') {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // 1. 读取Word文档内容（使用流）
+        const readStream = fs.createReadStream(inputPath);
+        let data = '';
+
+        for await (const chunk of readStream) {
+          data += chunk.toString('binary');
+        }
+
+        // 2. 解析Word文档
+        const zip = new PizZip(data);
+        const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+        });
+
+        // 3. 获取文档文本内容
+        // 替换 getFullText 方法为直接解析 XML
+        const textContent = doc.getZip()
+          .file('word/document.xml')
+          .asText();
+
+        // 使用正则表达式或其他解析工具处理 XML 并保留格式
+        const text = this.parseDocumentXML(textContent);
+        console.log('Formatted Text:', text);
+
+        // 4. 解析测试题
+        const questions = this.parseQuestions(text);
+
+        // 5. 流式生成HTML文件
+        await this.streamGenerateHTML(questions, outputPath, title);
+
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+  * 解析Word文档的XML内容，提取段落并转换为纯文本。
+  * 
+  * @param {string} xmlContent - Word文档的XML字符串，包含段落标签（<w:p>）。
+  *                              该参数应为完整的XML内容片段。
+  * @returns {string} 返回一个字符串，其中每个段落按行分割，并保留空行。
+  */
+  static parseDocumentXML(xmlContent) {
+    // 匹配段落标签 <w:p>...</w:p>
+    const paragraphRegex = /<w:p[^>]*>(.*?)<\/w:p>/gs;
+    const paragraphs = [];
+    let match;
+
+    while ((match = paragraphRegex.exec(xmlContent)) !== null) {
+      // 提取段落内容并去除多余的标签
+      const paragraph = match[1].replace(/<[^>]+>/g, '').trim();
+      paragraphs.push(paragraph);
+    }
+
+    // 保留空行（段落为空的情况）
+    return paragraphs.join('\n');
+  }
+
+  /**
+   * 流式生成HTML文件
+   * @param {Array} questions - 测试题数组
+   * @param {string} outputPath - 输出文件路径
+   * @param {string} title - 页面标题
+   * @returns {Promise<void>}
+   */
+  static streamGenerateHTML(questions, outputPath, title = '在线测评系统') {
+    return new Promise((resolve, reject) => {
+      try {
+        // 读取模板文件
+        const templatePath = path.join(__dirname, 'templates', 'evaluation.html');
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+
+        // 替换头部标题
+        let headHtml = templateContent.substring(0, templateContent.indexOf('</head>') + 7);
+        headHtml = headHtml.replace('{{title}}', title);
+
+        // 替换标题部分
+        const bodyStart = templateContent.indexOf('<body>');
+        const formStart = templateContent.indexOf('<form id="assessmentForm">');
+        let headerHtml = templateContent.substring(bodyStart, formStart);
+        headerHtml = headerHtml.replace('<h1>{{title}}</h1>', `<h1>${title}</h1>`);
+
+        // 表单开始标签到题目插入点
+        const formStartTag = '<form id="assessmentForm">';
+        const questionsPlaceholder = '{{questionsHtml}}';
+        const formStartHtml = formStartTag;
+
+        // 表单结束部分
+        const formEndIndex = templateContent.indexOf('</form>') + '</form>'.length;
+        const formEndHtml = templateContent.substring(formEndIndex);
+
+        // 创建可写流
+        const writeStream = fs.createWriteStream(outputPath);
+
+        // 写入HTML头部
+        writeStream.write(headHtml);
+
+        // 写入body开始和头部内容
+        writeStream.write(headerHtml);
+
+        // 写入表单开始部分
+        writeStream.write(formStartHtml);
+
+        // 边生成边写入题目部分
+        for (const question of questions) {
+          const questionHtml = this.generateQuestionHTML(question);
+          writeStream.write(questionHtml);
+        }
+
+        // 写入表单结束部分和HTML结尾
+        const footerContent = templateContent.substring(
+          templateContent.indexOf('{{questionsHtml}}') + '{{questionsHtml}}'.length,
+          templateContent.indexOf('</form>') + '</form>'.length
+        ).replace('{{questionsHtml}}', '');
+
+        writeStream.write(footerContent);
+        writeStream.write(formEndHtml);
+
+        // 关闭流
+        writeStream.end();
+
+        // 监听完成事件
+        writeStream.on('finish', () => {
+          resolve();
+        });
+
+        // 监听错误事件
+        writeStream.on('error', (error) => {
+          reject(error);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * 生成单个题目的HTML
+   * @param {Object} question - 题目对象
+   * @returns {string} 题目的HTML字符串
+   */
+  static generateQuestionHTML(question) {
+    return `
+        <div class="question" data-id="${question.id}">
+            <div class="question-stem">${question.id}. ${question.stem}</div>
+            ${question.type === 'choice' ? `
+            <div class="options">
+                ${question.options.map(option => `
+                <div class="option">
+                    <input type="radio" name="question-${question.id}" id="q${question.id}-${option.letter}" value="${option.letter}">
+                    <label for="q${question.id}-${option.letter}">${option.letter}. ${option.text}</label>
+                </div>`).join('')}
+            </div>` : `
+            <div>
+                <textarea name="question-${question.id}" rows="4" cols="60" placeholder="请输入您的答案"></textarea>
+            </div>`}
+        </div>`;
+  }
+
+  /**
+   * 从Word文档中提取测试题并转换为网页可用的数据结构（使用流式处理）
+   * @param {string} filePath - Word文档路径
+   * @returns {Promise<Array>} 测试题数组
+   */
+  static async extractQuestionsWithStream(filePath) {
+    return new Promise((resolve, reject) => {
+      try {
+        // 创建可读流
+        const readStream = fs.createReadStream(filePath);
+        let data = '';
+
+        // 监听数据流
+        readStream.on('data', chunk => {
+          data += chunk.toString('binary');
+        });
+
+        // 监听结束事件
+        readStream.on('end', () => {
+          try {
+            // 解析Word文档
+            const zip = new PizZip(data);
+            const doc = new Docxtemplater(zip, {
+              paragraphLoop: true,
+              linebreaks: true,
+            });
+
+            // 获取文档文本内容
+            const text = doc.getFullText();
+
+            // 解析测试题（根据常见格式）
+            const questions = this.parseQuestions(text);
+            resolve(questions);
+          } catch (error) {
+            reject(new Error(`解析Word文档时出错: ${error.message}`));
+          }
+        });
+
+        // 监听错误事件
+        readStream.on('error', (error) => {
+          reject(new Error(`读取文件时出错: ${error.message}`));
+        });
+      } catch (error) {
+        reject(new Error(`处理Word文档时出错: ${error.message}`));
+      }
+    });
+  }
+
   /**
    * 从Word文档中提取测试题并转换为网页可用的数据结构
    * @param {string} filePath - Word文档路径
@@ -175,6 +396,68 @@ class WordProcessor {
     });
 
     return questions;
+  }
+
+  /**
+   * 将测试题数据转换为HTML页面并使用流式写入文件
+   * @param {Array} questions - 测试题数组
+   * @param {string} outputPath - 输出文件路径
+   * @param {string} title - 页面标题
+   * @returns {Promise<void>}
+   */
+  static generateHTMLWithStream(questions, outputPath, title = '在线测评系统') {
+    return new Promise((resolve, reject) => {
+      try {
+        // 读取模板文件
+        const templatePath = path.join(__dirname, 'templates', 'evaluation.html');
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+
+        // 生成题目HTML
+        const questionsHtml = questions.map(question => `
+        <div class="question" data-id="${question.id}">
+            <div class="question-stem">${question.id}. ${question.stem}</div>
+            ${question.type === 'choice' ? `
+            <div class="options">
+                ${question.options.map(option => `
+                <div class="option">
+                    <input type="radio" name="question-${question.id}" id="q${question.id}-${option.letter}" value="${option.letter}">
+                    <label for="q${question.id}-${option.letter}">${option.letter}. ${option.text}</label>
+                </div>`).join('')}
+            </div>` : `
+            <div>
+                <textarea name="question-${question.id}" rows="4" cols="60" placeholder="请输入您的答案"></textarea>
+            </div>`}
+        </div>`).join('');
+
+        // 替换模板中的占位符
+        let html = templateContent.replace('{{title}}', title);
+        html = html.replace('{{questionsHtml}}', questionsHtml);
+        html = html.replace('<h1>{{title}}</h1>', `<h1>${title}</h1>`);
+
+        // 创建可写流
+        const writeStream = fs.createWriteStream(outputPath);
+
+        // 监听写入完成事件
+        writeStream.on('finish', () => {
+          resolve();
+        });
+
+        // 监听写入错误事件
+        writeStream.on('error', (error) => {
+          reject(new Error(`写入文件时出错: ${error.message}`));
+        });
+
+        // 将HTML内容写入流
+        const readable = new Readable();
+        readable.push(html);
+        readable.push(null); // 标记结束
+
+        // 使用管道连接流
+        readable.pipe(writeStream);
+      } catch (error) {
+        reject(new Error(`生成HTML时出错: ${error.message}`));
+      }
+    });
   }
 
   /**
