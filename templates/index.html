@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word测试题转换工具</title>
+  <style>
+    body {
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 40px 20px;
+      margin: 30px 0;
+      cursor: pointer;
+      transition: border-color 0.3s;
+    }
+
+    .upload-area:hover {
+      border-color: #007bff;
+    }
+
+    .upload-icon {
+      font-size: 48px;
+      color: #ccc;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      background-color: #007bff;
+      color: white;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    .btn:hover {
+      background-color: #0056b3;
+    }
+
+    .btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #file-name {
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Word测试题转换工具</h1>
+    <p>上传包含测试题的Word文档(.docx)，系统将自动转换为在线测评网页</p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📁</div>
+        <p>点击选择Word文档或拖拽文件到此处</p>
+        <p>仅支持 .docx 格式</p>
+        <input type="file" id="fileInput" name="wordFile" accept=".docx" style="display: none"
+          onchange="handleFileSelect(event)" />
+      </div>
+      <div id="file-name"></div>
+      <button type="submit" class="btn" id="submitBtn" disabled>
+        转换为测评网页
+      </button>
+    </form>
+  </div>
+
+  <script>
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        document.getElementById("file-name").textContent =
+          "已选择: " + file.name;
+        document.getElementById("submitBtn").disabled = false;
+      }
+    }
+
+    document
+      .getElementById("uploadForm")
+      .addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const formData = new FormData();
+        const fileInput = document.getElementById("fileInput");
+        formData.append("wordFile", fileInput.files[0]);
+
+        // 显示处理中状态
+        const submitBtn = document.getElementById("submitBtn");
+        submitBtn.textContent = "处理中...";
+        submitBtn.disabled = true;
+
+        fetch("/convert", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              // 在新窗口中打开生成的测评页面
+              window.open(data.url, "_blank");
+            } else {
+              alert("转换失败: " + data.error);
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert("发生错误: " + error.message);
+          })
+          .finally(() => {
+            submitBtn.textContent = "转换为测评网页";
+            submitBtn.disabled = false;
+          });
+      });
+  </script>
+</body>
+
+</html>
