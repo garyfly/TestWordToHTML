@@ -2,11 +2,11 @@
   "name": "word-to-assessment-web",
   "version": "1.0.0",
   "description": "将Word文档中的测试题转换为网页测评系统",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "postinstall": "node setup.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "postinstall": "node src/setup.js"
   },
   "dependencies": {
     "docxtemplater": "^3.32.3",
@@ -18,7 +18,12 @@
   "devDependencies": {
     "nodemon": "^2.0.22"
   },
-  "keywords": ["word", "assessment", "test", "converter"],
+  "keywords": [
+    "word",
+    "assessment",
+    "test",
+    "converter"
+  ],
   "author": "Developer",
   "license": "MIT"
 }
