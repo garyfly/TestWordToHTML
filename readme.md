@@ -11,23 +11,35 @@
 
 ## 安装和使用
 
+### 使用 Docker（推荐）
+
+```bash
+# 构建 Docker 镜像
+docker build -t word-to-assessment .
+
+# 运行容器
+docker run -p 3000:3000 word-to-assessment
+```
+
+然后在浏览器中访问 `http://localhost:3000`
+
 ### 1. 安装依赖
 
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 ### 2. 启动服务
 
-\`\`\`bash
+```bash
 npm start
-\`\`\`
+```
 
 或者开发模式：
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
 ### 3. 使用工具
 
@@ -52,7 +64,7 @@ npm run dev
 
 ### 示例格式：
 
-\`\`\`
+```
 1. 中国的首都是哪里？
 A. 上海
 B. 广州
@@ -64,7 +76,31 @@ A. HTML
 B. CSS
 C. JavaScript
 D. 图片
-\`\`\`
+```
+
+## Jenkins 集成
+
+本项目支持使用 Jenkins 进行持续集成和部署。项目根目录下包含了 [Jenkinsfile](./Jenkinsfile)，定义了完整的 CI/CD 流水线。
+
+### 配置要求
+
+- Jenkins 服务器需要安装 Node.js 插件
+- 需要配置 Node.js 工具（版本 16）
+- Jenkins 服务器需要安装并配置 Docker（用于构建和运行容器）
+
+### 流水线阶段
+
+1. Checkout - 拉取代码
+2. Install Dependencies - 安装项目依赖
+3. Build Docker Image - 构建 Docker 镜像
+4. Run Tests - 运行测试（如果有）
+5. Deploy - 部署应用
+
+### 配置步骤
+
+1. 在 Jenkins 中创建多分支流水线项目
+2. 指向项目的代码仓库
+3. Jenkins 会自动发现并使用 [Jenkinsfile](./Jenkinsfile) 中定义的流水线
 
 ## 技术实现
 
@@ -75,7 +111,7 @@ D. 图片
 
 ## 目录结构
 
-\`\`\`
+```
 .
 ├── index.js          # 主入口文件
 ├── server.js         # Express服务器
@@ -84,7 +120,7 @@ D. 图片
 ├── uploads/          # 上传文件存储目录
 ├── output/           # 生成的测评网页存储目录
 └── README.md         # 说明文档
-\`\`\`
+```
 
 ## 注意事项
 
