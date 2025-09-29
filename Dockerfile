@@ -5,7 +5,8 @@ WORKDIR /usr/src/app
 # 复制 package 文件
 COPY package*.json ./
 
-# 安装依赖，跳过postinstall脚本
+# 安装 pnpm 并安装依赖
+RUN npm install -g pnpm
 RUN pnpm install
 
 # 复制所有源代码
