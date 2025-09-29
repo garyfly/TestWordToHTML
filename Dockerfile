@@ -4,6 +4,7 @@ WORKDIR /usr/src/app
 
 # 复制 package 文件
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
 
 # 安装 pnpm 并安装依赖
 RUN npm install -g pnpm@8
