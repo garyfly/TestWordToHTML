@@ -35,7 +35,7 @@ pipeline {
                 echo "Building Docker image..."
                 script {
                     try {
-                        bat 'docker build -t ${PROJECT_NAME}:latest .'
+                        bat 'docker build -t %PROJECT_NAME%:latest .'
                         echo "Docker image built successfully"
                     } catch (e) {
                         echo "Error building Docker image: ${e}"
@@ -59,15 +59,15 @@ pipeline {
                 script {
                     try {
                         // 停止可能正在运行的同名容器
-                        bat 'docker stop ${PROJECT_NAME} || exit 0'
-                        bat 'docker rm ${PROJECT_NAME} || exit 0'
+                        bat 'docker stop %PROJECT_NAME% || exit 0'
+                        bat 'docker rm %PROJECT_NAME% || exit 0'
                         
                         // 运行新的容器
                         bat '''
                             docker run -d ^
-                                --name ${PROJECT_NAME} ^
+                                --name %PROJECT_NAME% ^
                                 -p 3000:3000 ^
-                                ${PROJECT_NAME}:latest
+                                %PROJECT_NAME%:latest
                         '''
                         
                         echo "Application deployed successfully. Access it at http://localhost:3000"
