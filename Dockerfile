@@ -6,8 +6,8 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # 安装 pnpm 并安装依赖
-RUN npm install -g pnpm
-RUN pnpm install
+RUN npm install -g pnpm@8
+RUN pnpm install --frozen-lockfile
 
 # 复制所有源代码
 COPY . .
