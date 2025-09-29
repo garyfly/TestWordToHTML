@@ -17,16 +17,16 @@ pipeline {
         stage('Setup Node.js') {
             steps {
                 echo "Setting up Node.js environment..."
-                sh 'node --version'
-                sh 'npm --version'
+                bat 'node --version'
+                bat 'npm --version'
             }
         }
         
         stage('Install Dependencies') {
             steps {
                 echo "Installing project dependencies..."
-                sh 'npm install -g pnpm'
-                sh 'pnpm install'
+                bat 'npm install -g pnpm'
+                bat 'pnpm install'
             }
         }
         
@@ -35,7 +35,7 @@ pipeline {
                 echo "Building Docker image..."
                 script {
                     try {
-                        sh 'docker build -t ${PROJECT_NAME}:latest .'
+                        bat 'docker build -t ${PROJECT_NAME}:latest .'
                         echo "Docker image built successfully"
                     } catch (e) {
                         echo "Error building Docker image: ${e}"
@@ -49,7 +49,7 @@ pipeline {
             steps {
                 echo "Running tests..."
                 // 由于项目中未包含测试，这里暂时留空
-                sh 'echo "No tests to run"'
+                bat 'echo "No tests to run"'
             }
         }
         
@@ -59,14 +59,14 @@ pipeline {
                 script {
                     try {
                         // 停止可能正在运行的同名容器
-                        sh 'docker stop ${PROJECT_NAME} || true'
-                        sh 'docker rm ${PROJECT_NAME} || true'
+                        bat 'docker stop ${PROJECT_NAME} || exit 0'
+                        bat 'docker rm ${PROJECT_NAME} || exit 0'
                         
                         // 运行新的容器
-                        sh '''
-                            docker run -d \
-                                --name ${PROJECT_NAME} \
-                                -p 3000:3000 \
+                        bat '''
+                            docker run -d ^
+                                --name ${PROJECT_NAME} ^
+                                -p 3000:3000 ^
                                 ${PROJECT_NAME}:latest
                         '''
                         
